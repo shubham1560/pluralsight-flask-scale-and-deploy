@@ -116,7 +116,8 @@ jobs:
             --launch-template-id $LT_ID \
             --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
             --output text)
-          echo "::set-output name=ver::$VERSION_NUMBER"
+          echo "ver=$VERSION_NUMBER"" >> $GITHUB_ENV
+          echo "The version number of launch template is $ver"
 
       - name: Start Instance Refresh on ASG
         run: |
@@ -124,4 +125,4 @@ jobs:
             --auto-scaling-group-name $ASG_NAME \
             --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
             --region $AWS_REGION \
-            --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"${{ steps.ltver.outputs.ver }}\"}}"
+            --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"$ver\"}}"
