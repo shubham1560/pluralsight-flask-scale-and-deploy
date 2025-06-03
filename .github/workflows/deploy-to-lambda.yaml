@@ -2,7 +2,7 @@ name: Zappa CI/CD → AWS Lambda
 
 on:
   push:
-    branches: [deployment]
+    branches: [pipeline]
 
 jobs:
   deploy:
