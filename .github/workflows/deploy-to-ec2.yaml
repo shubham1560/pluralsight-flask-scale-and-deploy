@@ -70,19 +70,20 @@ jobs:
         run: |
           TAG=${{ env.new_image_tag }}
           cat << 'EOF' > new_user_data.sh
-          #!/bin/bash
-          yum update -y
-          amazon-linux-extras install docker -y
-          service docker start
-          usermod -a -G docker ec2-user
+          apt-get update -y
+          apt-get install -y docker.io unzip
+          systemctl start docker
+          usermod -aG docker ubuntu
 
-          $(aws ecr get-login-password --region $AWS_REGION \
-            | docker login --username AWS --password-stdin $ECR_REPO)
+          cd /tmp
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 494077377285.dkr.ecr.ap-south-1.amazonaws.com
 
           docker pull $ECR_REPO:$TAG
-          docker rm -f flask-app || true
-          docker run -d --name flask-app -p 5000:5000 $ECR_REPO:$TAG
-          EOF
+          docker run -d -p 80:5000 $ECR_REPO:$TAG
 
           # Base64-encode for Launch Template
           NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
@@ -96,58 +97,50 @@ jobs:
             --source-version 1 \
             --launch-template-data "{\"UserData\":\"$new_user_data\"}"
 
-  trigger_asg_refresh:
-    name: Trigger Auto Scaling Group Refresh
-    runs-on: ubuntu-latest
-    environment: prod
-    needs: [update_launch_template, build_and_push]
-    env:
-      IMAGE_TAG: ${{ needs.build_and_push.outputs.new-image-tag }}
+  # trigger_asg_refresh:
+  #   name: Trigger Auto Scaling Group Refresh
+  #   runs-on: ubuntu-latest
+  #   environment: prod
+  #   needs: [update_launch_template, build_and_push]
+  #   env:
+  #     IMAGE_TAG: ${{ needs.build_and_push.outputs.new-image-tag }}
 
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+  #   steps:
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - name: Wait briefly for LT version to become available
-        run: sleep 10
+  #     - name: Wait briefly for LT version to become available
+  #       run: sleep 10
 
-      - name: Find the latest Launch Template version number
-        id: ltver
-        run: |
-          # NEW_TAG=${{ env.IMAGE_TAG }}
-          # VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
-          #   --launch-template-id $LT_ID \
-          #   --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
-          #   --output text)
-          # echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
-          # echo "The version number of launch template is $ver"
+  #     - name: Find the latest Launch Template version number
+  #       id: ltver
+  #       run: |
+  #         NEW_TAG="${{ env.IMAGE_TAG }}"
+  #         echo "Looking for Launch Template version where Description=='Deploy $NEW_TAG'..."
 
-          NEW_TAG="${{ env.IMAGE_TAG }}"
-          echo "Looking for Launch Template version where Description=='Deploy $NEW_TAG'..."
+  #         aws ec2 describe-launch-template-versions \
+  #           --launch-template-id $LT_ID \
+  #           --region $AWS_REGION \
+  #           --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].[VersionNumber,VersionDescription]" \
+  #           --output table
 
-          aws ec2 describe-launch-template-versions \
-            --launch-template-id $LT_ID \
-            --region $AWS_REGION \
-            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].[VersionNumber,VersionDescription]" \
-            --output table
+  #         VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
+  #           --launch-template-id $LT_ID \
+  #           --region $AWS_REGION \
+  #           --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'] | [0].VersionNumber" \
+  #           --output text)
 
-          VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
-            --launch-template-id $LT_ID \
-            --region $AWS_REGION \
-            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'] | [0].VersionNumber" \
-            --output text)
+  #         echo "Found Launch Template version: $VERSION_NUMBER"
+  #         echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
 
-          echo "Found Launch Template version: $VERSION_NUMBER"
-          echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
-
-      - name: Start Instance Refresh on ASG
-        run: |
-          aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name $ASG_NAME \
-            --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
-            --region $AWS_REGION \
-            --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"$ver\"}}"
+  #     - name: Start Instance Refresh on ASG
+  #       run: |
+  #         aws autoscaling start-instance-refresh \
+  #           --auto-scaling-group-name $ASG_NAME \
+  #           --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
+  #           --region $AWS_REGION \
+  #           --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"$ver\"}}"
