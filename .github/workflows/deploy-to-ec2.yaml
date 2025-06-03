@@ -15,6 +15,8 @@ jobs:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     environment: prod
+    outputs:
+      new-image-tag: ${{ steps.tag.outputs.new_image_tag }}
 
     steps:
       - name: Checkout repo
@@ -39,18 +41,21 @@ jobs:
         id: tag
         run: |
           NEW_TAG=$(echo $GITHUB_SHA | head -c7)
-          echo "new_image_tag=$NEW_TAG" >> $GITHUB_ENV
+          echo "new_image_tag=$NEW_TAG" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push to ECR
         run: |
           docker build -t $ECR_REPO:$new_image_tag .
-          docker push $ECR_REPO:$new_image_tag
+          docker push $ECR_REPO:${{ env.new_image_tag }}
 
   update_launch_template:
     name: Create Launch Template Version
     runs-on: ubuntu-latest
     environment: prod
     needs: build_and_push
+    env:
+      IMAGE_TAG: ${{ needs.build_and_push.outputs.new-image-tag }}
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -86,6 +91,6 @@ jobs:
         run: |
           aws ec2 create-launch-template-version \
             --launch-template-id $LT_ID \
-            --version-description "Deploy ${{ env.new_image_tag }}" \
+            --version-description "Deploy ${{ env.IMAGE_TAG }}" \
             --source-version 1 \
             --launch-template-data "{\"UserData\":\"$new_user_data\"}"
