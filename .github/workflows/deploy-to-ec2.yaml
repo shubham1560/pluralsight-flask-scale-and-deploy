@@ -68,8 +68,11 @@ jobs:
       - name: Render new user-data with the tagged image
         id: userdata
         run: |
-          TAG=${{ env.new_image_tag }}
-          cat << 'EOF' > new_user_data.sh
+          TAG="${{ env.IMAGE_TAG }}"
+
+          cat <<EOF > new_user_data.sh
+
+          #!/bin/bash
           apt-get update -y
           apt-get install -y docker.io unzip
           systemctl start docker
@@ -80,15 +83,18 @@ jobs:
           unzip awscliv2.zip
           sudo ./aws/install
 
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $ECR_REPO
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
 
-          docker pull $ECR_REPO:$TAG
-          docker run -d -p 80:5000 $ECR_REPO:$TAG
+          docker pull ${ECR_REPO}:${TAG}
+          docker rm -f flask-app || true
+          docker run -d --name flask-app -p 80:5000 ${ECR_REPO}:${TAG}
           EOF
 
-          # Base64-encode for Launch Template
+          # Base64-encode the fully-rendered script
           NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
-          echo "new_user_data=$NEW_USER_DATA" >> $GITHUB_ENV
+          echo "new_user_data=$NEW_USER_DATA" >> "$GITHUB_ENV"
+
+          # (Optional) output for debugging
           cat new_user_data.sh
 
       - name: Create a new Launch Template version
