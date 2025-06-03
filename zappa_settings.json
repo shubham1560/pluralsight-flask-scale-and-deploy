@@ -9,7 +9,7 @@
             "s3transfer",
             "concurrent"
         ],
-        "profile_name": "default",
+        "profile_name": null,
         "project_name": "app",
         "runtime": "python3.13",
         "s3_bucket": "zappa-ri0z8xji3"
