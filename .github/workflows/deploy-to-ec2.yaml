@@ -100,7 +100,7 @@ jobs:
     name: Trigger Auto Scaling Group Refresh
     runs-on: ubuntu-latest
     environment: prod
-    needs: update_launch_template
+    needs: [update_launch_template, build_and_push]
     env:
       IMAGE_TAG: ${{ needs.build_and_push.outputs.new-image-tag }}
 
@@ -142,7 +142,7 @@ jobs:
             --output text)
 
           echo "Found Launch Template version: $VERSION_NUMBER"
-          echo "::set-output name=version::$VERSION_NUMBER"
+          echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
 
       - name: Start Instance Refresh on ASG
         run: |
