@@ -38,4 +38,4 @@ jobs:
       - name: Deploy or Update Lambda via Zappa
         run: |
           source .venv/bin/activate
-          zappa deploy dev || zappa update dev
+          zappa update dev
