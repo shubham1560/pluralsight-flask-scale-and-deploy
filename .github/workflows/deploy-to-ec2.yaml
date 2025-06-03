@@ -116,7 +116,7 @@ jobs:
             --launch-template-id $LT_ID \
             --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
             --output text)
-          echo "ver=$VERSION_NUMBER"" >> $GITHUB_ENV
+          echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
           echo "The version number of launch template is $ver"
 
       - name: Start Instance Refresh on ASG
