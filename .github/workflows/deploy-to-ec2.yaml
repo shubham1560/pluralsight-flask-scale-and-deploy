@@ -51,6 +51,7 @@ jobs:
   update_launch_template:
     name: Create Launch Template Version
     runs-on: ubuntu-latest
+    environment: prod
     needs: build_and_push
     steps:
       - name: Configure AWS credentials
