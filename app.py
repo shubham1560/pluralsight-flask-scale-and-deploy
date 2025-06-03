@@ -3,9 +3,20 @@ from flask_caching import Cache
 import time
 import random
 import logging
+import os
+from flask_compress import Compress
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.config.from_object("config.Config")
+Compress(app)
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 cache = Cache(app)
 
@@ -14,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 @app.route("/")
 def home():
     app.logger.info("Home endpoint hit")
-    return jsonify(message="Hello from Flask!")
+    return jsonify(message="Hello from Flask v2!")
 
 @app.route("/health")
 def health():
@@ -27,10 +38,29 @@ def heavy():
     return jsonify(result="Heavy computation done!")
 
 @app.route("/cacheme/<param>")
-@cache.cached(timeout=30)
+@cache.cached(timeout=120)
 def cacheme(param):
-    app.logger.info(f"Caching result for: {param}")
-    return jsonify(result=f"Processed {param}", random=random.randint(1, 1000))
+    time.sleep(20)
+    worker = os.getpid()
+    app.logger.info(f"Caching result for: {param} (worker {worker})")
+    return jsonify(
+        result=f"Processed {param}",
+        random=random.randint(1, 1000),
+        worker=worker
+    )
+
+@app.route("/bigjson")
+def bigjson():
+    # Simulate a large JSON (e.g., 2000 items)
+    data = [{"item": i, "value": "x" * 100} for i in range(2000)]
+    return jsonify(data)
+
+@app.route('/api')
+@limiter.limit("5/minute")
+def api():
+    worker = os.getpid()
+    app.logger.info(f"limiter (worker {worker})")
+    return "success"
 
 @app.route("/error")
 def error():
