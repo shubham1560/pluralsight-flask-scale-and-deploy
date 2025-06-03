@@ -45,8 +45,8 @@ jobs:
 
       - name: Build, tag, and push to ECR
         run: |
-          docker build -t $ECR_REPO:${{ steps.tag.outputs.new_tag }} .
-          docker push $ECR_REPO:${{ steps.tag.outputs.new_tag }}
+          docker build -t $ECR_REPO:$new_image_tag .
+          docker push $ECR_REPO:$new_image_tag
 
   update_launch_template:
     name: Create Launch Template Version
