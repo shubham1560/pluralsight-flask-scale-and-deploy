@@ -91,3 +91,37 @@ jobs:
             --version-description "Deploy ${{ needs.build_and_push.outputs.image-tag }}" \
             --source-version 1 \
             --launch-template-data "{\"UserData\":\"${{ steps.userdata.outputs.encoded }}\"}"
+
+  trigger_asg_refresh:
+    name: Trigger Auto Scaling Group Refresh
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: update_launch_template
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Wait briefly for LT version to become available
+        run: sleep 10
+
+      - name: Find the latest Launch Template version number
+        id: ltver
+        run: |
+          NEW_TAG=${{ needs.build_and_push.outputs.image-tag }}
+          VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
+            --launch-template-id $LT_ID \
+            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
+            --output text)
+          echo "::set-output name=ver::$VERSION_NUMBER"
+
+      - name: Start Instance Refresh on ASG
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name $ASG_NAME \
+            --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
+            --region $AWS_REGION \
+            --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"${{ steps.ltver.outputs.ver }}\"}}"
