@@ -42,11 +42,12 @@ jobs:
         run: |
           NEW_TAG=$(echo $GITHUB_SHA | head -c7)
           echo "new_image_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "new_image_tag=$NEW_TAG" >> $GITHUB_ENV
 
       - name: Build, tag, and push to ECR
         run: |
-          docker build -t $ECR_REPO:$NEW_TAG .
-          docker push $ECR_REPO:$NEW_TAG
+          docker build -t $ECR_REPO:$new_image_tag .
+          docker push $ECR_REPO:$new_image_tag
 
   update_launch_template:
     name: Create Launch Template Version
