@@ -71,8 +71,8 @@ jobs:
           TAG="${{ env.IMAGE_TAG }}"
 
           cat <<EOF > new_user_data.sh
-
           #!/bin/bash
+
           apt-get update -y
           apt-get install -y docker.io unzip
           systemctl start docker
