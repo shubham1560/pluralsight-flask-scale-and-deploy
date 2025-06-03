@@ -1,0 +1,89 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python environment variables
+*.env
+*.venv
+.env/
+
+# Django stuff (if applicable)
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask cache, sessions, etc.
+instance/
+.webassets-cache
+
+# Pytest cache
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Docker build files
+docker-compose.override.yml
+Dockerfile.*
+
+# Zappa deployment package
+.zappa/
+
+# AWS credentials file (if you keep one locally)
+.aws/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS filesystem
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Jupyter Notebook checkpoints (if you ever use notebooks)
+.ipynb_checkpoints/
+
+# Local test output or artifacts
+test_output/
