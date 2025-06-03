@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 @app.route("/")
 def home():
     app.logger.info("Home endpoint hit")
-    return jsonify(message="Hello from Flask v2!")
+    return jsonify(message="Hello from Flask v2 deployed via ci-cd pipeline")
 
 @app.route("/health")
 def health():
