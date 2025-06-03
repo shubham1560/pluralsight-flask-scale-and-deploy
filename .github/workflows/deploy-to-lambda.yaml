@@ -2,29 +2,29 @@ name: Zappa CI/CD → AWS Lambda
 
 on:
   push:
-    branches: [pipeline]
-
-env:
-  AWS_REGION: ap-south-1
+    branches: [deployment]
 
 jobs:
   deploy:
-    name: Deploy Flask App to Lambda via Zappa
     runs-on: ubuntu-latest
-    environment: prod
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
+      - name: Create and activate Python venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Configure AWS credentials
@@ -32,15 +32,9 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Initialize Zappa (if first deploy)
-        if: ${{ github.event.head_commit.message == 'Init Zappa' }}
-        run: |
-          zappa init --yes
+          aws-region: ap-south-1
 
       - name: Deploy or Update Lambda via Zappa
         run: |
-          # If the Lambda function does not yet exist, this does the first deploy.
-          # Otherwise, it updates the existing deployment.
+          source .venv/bin/activate
           zappa deploy dev || zappa update dev
