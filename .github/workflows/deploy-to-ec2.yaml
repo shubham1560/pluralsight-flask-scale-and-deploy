@@ -118,13 +118,31 @@ jobs:
       - name: Find the latest Launch Template version number
         id: ltver
         run: |
-          NEW_TAG=${{ env.IMAGE_TAG }}
+          # NEW_TAG=${{ env.IMAGE_TAG }}
+          # VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
+          #   --launch-template-id $LT_ID \
+          #   --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
+          #   --output text)
+          # echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
+          # echo "The version number of launch template is $ver"
+
+          NEW_TAG="${{ needs.build_and_push.outputs.new-image-tag }}"
+          echo "Looking for Launch Template version where Description=='Deploy $NEW_TAG'..."
+
+          aws ec2 describe-launch-template-versions \
+            --launch-template-id $LT_ID \
+            --region $AWS_REGION \
+            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].[VersionNumber,VersionDescription]" \
+            --output table
+
           VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
             --launch-template-id $LT_ID \
-            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
+            --region $AWS_REGION \
+            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'] | [0].VersionNumber" \
             --output text)
-          echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
-          echo "The version number of launch template is $ver"
+
+          echo "Found Launch Template version: $VERSION_NUMBER"
+          echo "::set-output name=version::$VERSION_NUMBER"
 
       - name: Start Instance Refresh on ASG
         run: |
