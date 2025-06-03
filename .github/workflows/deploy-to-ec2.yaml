@@ -88,6 +88,7 @@ jobs:
           # Base64-encode for Launch Template
           NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
           echo "new_user_data=$NEW_USER_DATA" >> $GITHUB_ENV
+          cat new_user_data.sh
 
       - name: Create a new Launch Template version
         run: |
