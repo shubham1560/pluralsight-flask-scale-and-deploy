@@ -47,3 +47,46 @@ jobs:
         run: |
           docker build -t $ECR_REPO:${{ steps.tag.outputs.new_tag }} .
           docker push $ECR_REPO:${{ steps.tag.outputs.new_tag }}
+
+  update_launch_template:
+    name: Create Launch Template Version
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Render new user-data with the tagged image
+        id: userdata
+        run: |
+          TAG=${{ needs.build_and_push.outputs.image-tag }}
+          cat << 'EOF' > new_user_data.sh
+          #!/bin/bash
+          yum update -y
+          amazon-linux-extras install docker -y
+          service docker start
+          usermod -a -G docker ec2-user
+
+          $(aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_REPO)
+
+          docker pull $ECR_REPO:$TAG
+          docker rm -f flask-app || true
+          docker run -d --name flask-app -p 5000:5000 $ECR_REPO:$TAG
+          EOF
+
+          # Base64-encode for Launch Template
+          NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
+          echo "::set-output name=encoded::$NEW_USER_DATA"
+
+      - name: Create a new Launch Template version
+        run: |
+          aws ec2 create-launch-template-version \
+            --launch-template-id $LT_ID \
+            --version-description "Deploy ${{ needs.build_and_push.outputs.image-tag }}" \
+            --source-version 1 \
+            --launch-template-data "{\"UserData\":\"${{ steps.userdata.outputs.encoded }}\"}"
