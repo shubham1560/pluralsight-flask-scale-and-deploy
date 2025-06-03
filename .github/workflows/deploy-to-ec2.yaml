@@ -40,8 +40,6 @@ jobs:
         run: |
           NEW_TAG=$(echo $GITHUB_SHA | head -c7)
           echo "new_image_tag=$NEW_TAG" >> $GITHUB_ENV
-          echo "The image tag is $new_tag"
-          # echo "::set-output name=new_tag::$NEW_TAG"
 
       - name: Build, tag, and push to ECR
         run: |
@@ -64,7 +62,7 @@ jobs:
       - name: Render new user-data with the tagged image
         id: userdata
         run: |
-          TAG=${{ needs.build_and_push.outputs.image-tag }}
+          TAG=${{ env.new_image_tag }}
           cat << 'EOF' > new_user_data.sh
           #!/bin/bash
           yum update -y
@@ -83,48 +81,11 @@ jobs:
           # Base64-encode for Launch Template
           NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
           echo "new_user_data=$NEW_USER_DATA" >> $GITHUB_ENV
-          echo "The new user data is $new_user_data"
-          # echo "::set-output name=encoded::$NEW_USER_DATA"
 
       - name: Create a new Launch Template version
         run: |
           aws ec2 create-launch-template-version \
             --launch-template-id $LT_ID \
-            --version-description "Deploy $new_image_tag" \
+            --version-description "Deploy ${{ env.new_image_tag }}" \
             --source-version 1 \
             --launch-template-data "{\"UserData\":\"$new_user_data\"}"
-
-  trigger_asg_refresh:
-    name: Trigger Auto Scaling Group Refresh
-    runs-on: ubuntu-latest
-    environment: prod
-    needs: update_launch_template
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Wait briefly for LT version to become available
-        run: sleep 10
-
-      - name: Find the latest Launch Template version number
-        id: ltver
-        run: |
-          NEW_TAG=${{ needs.build_and_push.outputs.image-tag }}
-          VERSION_NUMBER=$(aws ec2 describe-launch-template-versions \
-            --launch-template-id $LT_ID \
-            --query "LaunchTemplateVersions[?VersionDescription=='Deploy $NEW_TAG'].VersionNumber" \
-            --output text)
-          echo "ver=$VERSION_NUMBER" >> $GITHUB_ENV
-          echo "The version number of launch template is $ver"
-
-      - name: Start Instance Refresh on ASG
-        run: |
-          aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name $ASG_NAME \
-            --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
-            --region $AWS_REGION \
-            --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"$LT_ID\",\"Version\":\"$ver\"}}"
