@@ -15,8 +15,6 @@ jobs:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     environment: prod
-    outputs:
-      image-tag: ${{ steps.tag.outputs.new_tag }}
 
     steps:
       - name: Checkout repo
@@ -41,7 +39,9 @@ jobs:
         id: tag
         run: |
           NEW_TAG=$(echo $GITHUB_SHA | head -c7)
-          echo "::set-output name=new_tag::$NEW_TAG"
+          echo "new_image_tag=$NEW_TAG" >> $GITHUB_ENV
+          echo "The image tag is $new_tag"
+          # echo "::set-output name=new_tag::$NEW_TAG"
 
       - name: Build, tag, and push to ECR
         run: |
@@ -82,15 +82,17 @@ jobs:
 
           # Base64-encode for Launch Template
           NEW_USER_DATA=$(base64 -w0 new_user_data.sh)
-          echo "::set-output name=encoded::$NEW_USER_DATA"
+          echo "new_user_data=$NEW_USER_DATA" >> $GITHUB_ENV
+          echo "The new user data is $new_user_data"
+          # echo "::set-output name=encoded::$NEW_USER_DATA"
 
       - name: Create a new Launch Template version
         run: |
           aws ec2 create-launch-template-version \
             --launch-template-id $LT_ID \
-            --version-description "Deploy ${{ needs.build_and_push.outputs.image-tag }}" \
+            --version-description "Deploy $new_image_tag" \
             --source-version 1 \
-            --launch-template-data "{\"UserData\":\"${{ steps.userdata.outputs.encoded }}\"}"
+            --launch-template-data "{\"UserData\":\"$new_user_data\"}"
 
   trigger_asg_refresh:
     name: Trigger Auto Scaling Group Refresh
